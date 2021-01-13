@@ -1,0 +1,295 @@
+#!/usr/bin/env bash
+
+POSIXLY_CORREXT=yes
+
+#Lukáš Gurecký (xgurec00)
+
+declare -a file=()
+declare -a filter=()
+declare -a filtry=()
+declare -a hodnoty=()
+declare -a date=()
+
+
+function converter {
+    if [[ $1 == "Jan" ]]; then
+        echo "01"
+    elif [[ $1 == "Feb" ]]; then
+        echo "02"
+    elif [[ $1 == "Mar" ]]; then
+        $1="03"
+    elif [[ $1 == "Apr" ]]; then
+        echo "04"
+    elif [[ $1 == "May" ]]; then
+        echo "05"
+    elif [[ $1 == "Jun" ]]; then
+        echo "06"
+    elif [[ $1 == "Jul" ]]; then
+        echo "07"
+    elif [[ $1 == "Aug" ]]; then
+        echo "08"
+    elif [[ $1 == "Sep" ]]; then
+        echo "09"
+    elif [[ $1 == "Oct" ]]; then
+        echo "10"
+    elif [[ $1 == "Nov" ]]; then
+        echo "11"
+    elif [[ $1 == "Dec" ]]; then
+        echo "12"
+    fi
+}
+
+function findposition {
+    value=$1
+    shift
+    my_array=($@)
+    for i in "${!my_array[@]}"; do
+        if [[ "${my_array[$i]}" = "${value}" ]]; then
+            echo $i
+            break
+        fi
+    done
+}
+
+function findBiggest {
+    my_array=($@)
+    biggest=0
+    biggestposition=0
+
+    for i in "${!my_array[@]}"; do
+        if [[ "${my_array[$i]}" -gt "${biggest}" ]]; then
+            biggest=${my_array[$i]}
+            biggestposition=$i
+        fi
+    done
+
+    echo $biggestposition
+}
+
+function findLowest {
+    my_array=($@)
+    lowest=9223372036854775807
+    lowestposition=0
+
+    for i in "${!my_array[@]}"; do
+        if [[ "${my_array[$i]}" -lt "${lowest}" ]]; then
+            lowest=${my_array[$i]}
+            lowestposition=$i
+        fi
+    done
+
+    echo $lowestposition
+}
+
+a=1
+while [[ ${!a} == "-ip" ]] || [[ ${!a} == "-a" ]] || [[ ${!a} == "-b" ]] || [[ ${!a} == "-uri" ]]; do
+    if [[ ${!a} == "-a" ]] || [[ ${!a} == "-b" ]]; then
+        filtry+=(${!a})
+        ((a++))
+        datum="$(cut -d' ' -f1 <<<"${!a}")"
+        rok="$(cut -d'-' -f1 <<<"$datum")"
+        mesic="$(cut -d'-' -f2 <<<"$datum")"
+        den="$(cut -d'-' -f3 <<<"$datum")"
+        
+        datum="$(cut -d' ' -f2 <<<"${!a}")"
+        hodina="$(cut -d':' -f1 <<<"$datum")"
+        minuta="$(cut -d':' -f2 <<<"$datum")"
+        sekunda="$(cut -d':' -f3 <<<"$datum")"
+        if [[ $sekunda == "" ]]; then
+            sekunda="00"
+        fi
+        hodnoty+=($rok$mesic$den$hodina$minuta$sekunda)
+        ((a++))
+
+    else
+        filtry+=(${!a})
+        ((a++))
+        hodnoty+=(${!a})
+        ((a++))
+    fi
+done
+
+if [[ ${!a} == "list-ip" ]] || [[ ${!a} == "list-hosts" ]] || [[ ${!a} == "list-uri" ]] || [[ ${!a} == "hist-ip" ]] || [[ ${!a} == "hist-load" ]]; then
+    prikaz=${!a}
+    ((a++))
+fi
+
+if [[ a -gt $# ]]; then
+    while read -r line; do
+        file+=("$line")
+    done < /dev/stdin
+fi
+
+while [[ a -le $# ]]; do
+    IFS=$'\n'
+    if [[ ${!a} == *".gz"  ]]; then
+        radky=$(zcat < ${!a})
+    else 
+        radky=$(cat < ${!a})
+    fi
+
+    for line in $radky; do
+        file+=("$line")
+    done
+    ((a++))
+    unset IFS
+done
+
+for (( i=0 ; i<${#filtry[@]} ; i++ )); do
+    for (( j=0 ; j<${#file[@]} ; j++ )); do
+        row="${file[$j]}"
+        split=($row)
+        if [[ ${filtry[$i]} == "-ip" ]]; then
+            if [[ ${hodnoty[$i]} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ ${hodnoty[$i]} =~ ^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$ ]] ; then
+                if [[ "${split[0]}" == ${hodnoty[$i]} ]] ; then
+                    filter+=("$row")
+                fi
+            else
+                echo "fail"
+                exit -1
+            fi
+
+        elif [[ ${filtry[$i]} == "-a" ]]; then
+
+            datum="${split[3]:1}"
+            den="$(cut -d'/' -f1 <<<"$datum")"
+            mesic="$(cut -d'/' -f2 <<<"$datum")"
+            pomocnik="$(cut -d'/' -f3 <<<"$datum")"
+            rok="$(cut -d':' -f1 <<<"$pomocnik")"
+            hodina="$(cut -d':' -f2 <<<"$pomocnik")"
+            minuta="$(cut -d':' -f3 <<<"$pomocnik")"
+            sekunda="$(cut -d':' -f4 <<<"$pomocnik")"
+
+            mesic="$(converter $mesic)"
+
+            datum="$rok$mesic$den$hodina$minuta$sekunda"
+
+            if [[ ${hodnoty[$i]} -lt $datum ]]; then
+                filter+=("$row")
+            fi
+
+        elif [[ ${filtry[$i]} == "-b" ]]; then
+            datum="${split[3]:1}"
+            den="$(cut -d'/' -f1 <<<"$datum")"
+            mesic="$(cut -d'/' -f2 <<<"$datum")"
+            pomocnik="$(cut -d'/' -f3 <<<"$datum")"
+            rok="$(cut -d':' -f1 <<<"$pomocnik")"
+            hodina="$(cut -d':' -f2 <<<"$pomocnik")"
+            minuta="$(cut -d':' -f3 <<<"$pomocnik")"
+            sekunda="$(cut -d':' -f4 <<<"$pomocnik")"
+
+            mesic="$(converter $mesic)"
+
+            datum="$rok$mesic$den$hodina$minuta$sekunda"
+
+            if [[ ${hodnoty[$i]} -gt $datum ]]; then
+                filter+=("$row")
+            fi
+        elif [[ ${filtry[$i]} == "-uri" ]]; then
+
+            if [[ "${split[6]}" == ${hodnoty[$i]} ]] ; then
+                filter+=("$row")
+            fi
+        fi
+    done
+    file=("${filter[@]}")
+    filter=()
+done
+
+
+for (( i=0 ; i!=${#file[@]} ; i++)) ; do
+    if [[ $prikaz == "list-ip" ]]; then
+        split=(${file[$i]})
+        file[$i]="${split[0]}"
+        if [[ ! "${check[*]}" =~ ${file[$i]} ]]; then
+            check+="${file[$i]}"
+            echo ${file[$i]}
+        fi
+        
+    
+    elif [[ $prikaz == "list-hosts" ]]; then
+        split=(${file[$i]})
+        host=$(host ${split[0]})
+
+        split=($host)
+        host="${split[4]:0:(-1)}"
+
+        if [[ ! $host = "3(NXDOMAIN" ]]; then
+            file[$i]="$host"
+            if [[ ! "${check[*]}" =~ ${file[$i]} ]]; then
+                check+=("${file[$i]}")
+                echo ${file[$i]}
+            fi
+        else 
+            split=(${file[$i]})
+            if [[ ! "${check[*]}" =~ ${split[0]} ]]; then
+                check+=("${split[0]}")
+                echo ${split[0]}
+            fi
+        fi
+
+    elif [[ $prikaz == "list-uri" ]]; then
+        split=(${file[$i]})
+        file[$i]="${split[6]}"
+        if [[ ! "${check[*]}" =~ ${file[$i]} ]]; then
+            check+=("${file[$i]}")
+            if [[ ! ${file[$i]} =~ ^[0-9]+$ ]]; then
+                echo ${file[$i]}
+            fi
+        fi
+
+    elif [[ $prikaz == "hist-ip" ]]; then
+        split=(${file[$i]})
+        file[$i]="${split[0]}"
+        if [[ ! "${address[*]}" =~ ${file[$i]} ]]; then
+            address+=("${file[$i]}")
+            hash+=("#")
+            sum+=(1)
+        else
+            position=$(findposition "${file[$i]}" "${address[@]}")
+            hash[$position]="${hash[$position]}#"
+            ((sum[position]++)) 
+        fi
+
+    elif [[ $prikaz == "hist-load" ]]; then
+        split=(${file[$i]})
+        datum="${split[3]:1}"
+        den="$(cut -d'/' -f1 <<<"$datum")"
+        mesic="$(cut -d'/' -f2 <<<"$datum")"
+        pomocnik="$(cut -d'/' -f3 <<<"$datum")"
+        rok="$(cut -d':' -f1 <<<"$pomocnik")"
+        hodina="$(cut -d':' -f2 <<<"$pomocnik")"
+        minuta="$(cut -d':' -f3 <<<"$pomocnik")"
+        sekunda="$(cut -d':' -f4 <<<"$pomocnik")"
+
+        mesic="$(converter $mesic)"
+        datum="$rok$mesic$den$hodina"
+
+        if [[ ! "${date[*]}" =~ $datum ]]; then
+            date+=("$datum")
+            hash+=("#")
+            sum+=(1)
+        else
+            position=$(findposition "$datum" "${date[@]}")
+            hash[$position]="${hash[$position]}#"
+            ((sum[position]++)) 
+        fi
+
+    elif [[ $prikaz == "" ]]; then
+        echo ${file[$i]}
+    fi
+done
+
+if [[ $prikaz == "hist-ip" ]]; then
+    for (( i=0 ; i!=${#address[@]} ; i++)) ; do
+        biggest=$(findBiggest "${sum[@]}")
+        echo "${address[$biggest]} (${sum[$biggest]}): ${hash[$biggest]}"
+        sum[$biggest]=0
+    done
+elif [[ $prikaz == "hist-load" ]]; then
+    for (( i=0 ; i!=${#date[@]} ; i++)) ; do
+        lowest=$(findLowest "${date[@]}")
+        echo "${date[$lowest]:0:4}-${date[$lowest]:4:2}-${date[$lowest]:6:2} ${date[$lowest]:8:2}:00 (${sum[$lowest]}): ${hash[$lowest]}"
+        date[$lowest]=300000000000
+    done
+fi
